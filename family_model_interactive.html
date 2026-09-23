@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mother–Father–Infant Model (Interactive)</title>
+<style>
+  :root{
+    --father:#00c1de; --mother:#ff1d96; --infant:#bb7cbb;
+    --ink:#1c2331; --muted:#67707e; --line:#e2e6ec; --bg:#ffffff; --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       color:var(--ink);background:var(--bg);line-height:1.45}
+  header{padding:20px 24px 8px}
+  h1{font-size:19px;margin:0 0 2px}
+  header p{margin:0;color:var(--muted);font-size:13px}
+  .wrap{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:16px 24px 32px;align-items:start}
+  @media(max-width:820px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--card);border-radius:12px;padding:16px}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 12px}
+  .presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px}
+  .presets button{font-size:12px;padding:6px 10px;border:1px solid var(--line);background:#fff;border-radius:20px;cursor:pointer;color:var(--ink)}
+  .presets button:hover{border-color:#b9c0cc;background:#fbfcfd}
+  .row{margin:12px 0}
+  .row label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
+  .row label .val{font-variant-numeric:tabular-nums;color:var(--muted)}
+  input[type=range]{width:100%;accent-color:#5566d6}
+  .sub{font-size:11px;color:var(--muted);margin:-2px 0 8px}
+  details{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+  summary{font-size:12px;color:var(--muted);cursor:pointer;text-transform:uppercase;letter-spacing:.05em}
+  .toggle{display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0}
+  .radios{display:flex;gap:14px;font-size:13px;margin-top:4px}
+  canvas{width:100%;height:auto;display:block}
+  .readout{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+  .chip{flex:1;min-width:96px;background:#f5f6f8;border-radius:10px;padding:8px 10px}
+  .chip .k{font-size:11px;color:var(--muted)}
+  .chip .v{font-size:18px;font-variant-numeric:tabular-nums;font-weight:600}
+  .badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600;margin-top:10px}
+  .content{background:#e5f7ef;color:#1a7f4b}
+  .distressed{background:#fde8ef;color:#c0326a}
+  .mixed{background:#fdf2e0;color:#b5720c}
+  .legend{display:flex;gap:16px;font-size:13px;margin:2px 0 6px}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .sw{width:16px;height:3px;border-radius:2px;display:inline-block}
+  .note{font-size:12px;color:var(--muted);margin-top:10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>A Continuous Model of Mother, Father &amp; Infant Relations</h1>
+  <p>Drag the sliders to see how each family member's emotional state evolves and where the family settles.</p>
+</header>
+
+<div class="wrap">
+  <!-- CONTROLS -->
+  <div class="card">
+    <h2>Scenarios</h2>
+    <div class="presets" id="presets">
+      <button data-p="healthy">Both healthy</button>
+      <button data-p="mild">Mild maternal PPD</button>
+      <button data-p="severe">Severe maternal PPD</button>
+      <button data-p="father">Father PPD</button>
+      <button data-p="both">Both PPD</button>
+    </div>
+
+    <h2 style="margin-top:16px">Baselines (a)</h2>
+    <div class="row">
+      <label>Father&nbsp;a<sub>F</sub> <span class="val" id="vaF"></span></label>
+      <input type="range" id="aF" min="-0.9" max="0.7" step="0.01">
+    </div>
+    <div class="row">
+      <label>Mother&nbsp;a<sub>M</sub> <span class="val" id="vaM"></span></label>
+      <input type="range" id="aM" min="-0.9" max="0.7" step="0.01">
+    </div>
+    <div class="row">
+      <label>Infant&nbsp;a<sub>B</sub> <span class="val" id="vaB"></span></label>
+      <input type="range" id="aB" min="-0.9" max="0.7" step="0.01">
+    </div>
+
+    <div class="toggle">
+      <input type="checkbox" id="td">
+      <label for="td">Time-dependent early boost</label>
+    </div>
+    <div class="sub">Parent–infant coupling is stronger early, then eases (sigmoid).</div>
+    <div class="row">
+      <label>Boost strength&nbsp;c <span class="val" id="vc"></span></label>
+      <input type="range" id="c" min="0" max="1.5" step="0.05" value="0.6" disabled>
+    </div>
+
+    <div class="row">
+      <label>Start from</label>
+      <div class="radios">
+        <span><input type="radio" name="ic" value="-1" id="icD" checked> distressed (−1)</span>
+        <span><input type="radio" name="ic" value="0" id="icN"> neutral (0)</span>
+      </div>
+    </div>
+
+    <details>
+      <summary>Advanced parameters</summary>
+      <div class="row">
+        <label>Father inertia&nbsp;r<sub>F</sub> <span class="val" id="vrF"></span></label>
+        <input type="range" id="rF" min="-1.2" max="-0.1" step="0.01" value="-0.63">
+      </div>
+      <div class="row">
+        <label>Mother inertia&nbsp;r<sub>M</sub> <span class="val" id="vrM"></span></label>
+        <input type="range" id="rM" min="-1.2" max="-0.1" step="0.01" value="-0.86">
+      </div>
+      <div class="row">
+        <label>Infant inertia&nbsp;r<sub>B</sub> <span class="val" id="vrB"></span></label>
+        <input type="range" id="rB" min="-1.2" max="-0.1" step="0.01" value="-0.74">
+      </div>
+      <div class="row">
+        <label>Time horizon <span class="val" id="vT"></span></label>
+        <input type="range" id="T" min="10" max="80" step="1" value="50">
+      </div>
+    </details>
+  </div>
+
+  <!-- PLOT -->
+  <div class="card">
+    <h2>Emotional trajectories</h2>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--father)"></i>Father</span>
+      <span><i class="sw" style="background:var(--mother)"></i>Mother</span>
+      <span><i class="sw" style="background:var(--infant)"></i>Infant</span>
+    </div>
+    <canvas id="plot" width="720" height="420"></canvas>
+
+    <div class="readout">
+      <div class="chip"><div class="k">Father F*</div><div class="v" id="oF">–</div></div>
+      <div class="chip"><div class="k">Mother M*</div><div class="v" id="oM">–</div></div>
+      <div class="chip"><div class="k">Infant B*</div><div class="v" id="oB">–</div></div>
+    </div>
+    <div><span class="badge" id="state">–</span></div>
+    <div class="note" id="note"></div>
+  </div>
+</div>
+
+<script>
+// ---- influence functions (bilinear: negative slope, positive slope) ----
+const S = {MF:[0.28,0.15], FM:[0.31,0.21], MB:[0.40,0.25], FB:[0.20,0.40], BM:[0.50,0.20], BF:[0.40,0.30]};
+const inf = (key,x)=> (x<0 ? S[key][0] : S[key][1]) * x;
+
+const P = { aF:0.2394, aM:0.4472, aB:0.2222, rF:-0.63, rM:-0.86, rB:-0.74,
+            td:false, c:0.6, t0:3, a:2, ic:-1, T:50 };
+
+function g(t){ return P.td ? 1 + P.c*(1/(1+Math.exp(P.a*(t-P.t0)))) : 1; }
+
+function deriv(F,M,B,t){
+  const gg = g(t);
+  const dF = P.aF + P.rF*F + inf('MF',M) + gg*inf('BF',B);
+  const dM = P.aM + P.rM*M + inf('FM',F) + gg*inf('BM',B);
+  const dB = P.aB + P.rB*B + gg*inf('MB',M) + gg*inf('FB',F);
+  return [dF,dM,dB];
+}
+
+function integrate(){
+  const dt=0.02, n=Math.round(P.T/dt);
+  let F=P.ic, M=P.ic, B=P.ic;
+  const xs=new Float64Array(n+1), fs=new Float64Array(n+1), ms=new Float64Array(n+1), bs=new Float64Array(n+1);
+  xs[0]=0; fs[0]=F; ms[0]=M; bs[0]=B;
+  for(let k=0;k<n;k++){
+    const t=k*dt;
+    const k1=deriv(F,M,B,t);
+    const k2=deriv(F+0.5*dt*k1[0],M+0.5*dt*k1[1],B+0.5*dt*k1[2],t+0.5*dt);
+    const k3=deriv(F+0.5*dt*k2[0],M+0.5*dt*k2[1],B+0.5*dt*k2[2],t+0.5*dt);
+    const k4=deriv(F+dt*k3[0],M+dt*k3[1],B+dt*k3[2],t+dt);
+    F+=dt/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]);
+    M+=dt/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]);
+    B+=dt/6*(k1[2]+2*k2[2]+2*k3[2]+k4[2]);
+    xs[k+1]=(k+1)*dt; fs[k+1]=F; ms[k+1]=M; bs[k+1]=B;
+  }
+  return {xs,fs,ms,bs,end:[F,M,B]};
+}
+
+// true steady state: autonomous model (g=1), long horizon, independent of display window
+function derivAuto(F,M,B){
+  return [ P.aF + P.rF*F + inf('MF',M) + inf('BF',B),
+           P.aM + P.rM*M + inf('FM',F) + inf('BM',B),
+           P.aB + P.rB*B + inf('MB',M) + inf('FB',F) ];
+}
+function equilibrium(){
+  const dt=0.05, n=8000; let F=0,M=0,B=0;
+  for(let k=0;k<n;k++){
+    const k1=derivAuto(F,M,B);
+    const k2=derivAuto(F+0.5*dt*k1[0],M+0.5*dt*k1[1],B+0.5*dt*k1[2]);
+    const k3=derivAuto(F+0.5*dt*k2[0],M+0.5*dt*k2[1],B+0.5*dt*k2[2]);
+    const k4=derivAuto(F+dt*k3[0],M+dt*k3[1],B+dt*k3[2]);
+    F+=dt/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]);
+    M+=dt/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]);
+    B+=dt/6*(k1[2]+2*k2[2]+2*k3[2]+k4[2]);
+  }
+  return [F,M,B];
+}
+
+const cv=document.getElementById('plot'), ctx=cv.getContext('2d');
+function getCss(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function draw(sol){
+  const W=cv.width, H=cv.height, padL=44, padR=14, padT=14, padB=30;
+  ctx.clearRect(0,0,W,H);
+  let lo=Math.min(...sol.end,-1.2, sol.ms[0]), hi=Math.max(...sol.end,1.5);
+  for(let i=0;i<sol.ms.length;i+=20){lo=Math.min(lo,sol.fs[i],sol.ms[i],sol.bs[i]);hi=Math.max(hi,sol.fs[i],sol.ms[i],sol.bs[i]);}
+  lo=Math.floor(lo*2)/2-0.2; hi=Math.ceil(hi*2)/2+0.2;
+  const X=t=> padL + (t/P.T)*(W-padL-padR);
+  const Y=v=> padT + (1-(v-lo)/(hi-lo))*(H-padT-padB);
+  ctx.strokeStyle='#eef1f5'; ctx.fillStyle='#8a929e'; ctx.font='11px -apple-system,Arial'; ctx.lineWidth=1;
+  for(let v=Math.ceil(lo);v<=Math.floor(hi);v++){
+    ctx.beginPath();ctx.moveTo(padL,Y(v));ctx.lineTo(W-padR,Y(v));ctx.stroke();
+    ctx.fillText(v.toFixed(0),8,Y(v)+4);
+  }
+  ctx.strokeStyle='#c7ced8';ctx.beginPath();ctx.moveTo(padL,Y(0));ctx.lineTo(W-padR,Y(0));ctx.stroke();
+  const step=P.T<=24?3:10;
+  for(let t=0;t<=P.T;t+=step){ctx.fillText(t.toFixed(0),X(t)-5,H-10);}
+  ctx.fillText('time (illustrative units)', W/2-56, H-2);
+  if(P.td){ctx.strokeStyle='#c7ced8';ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(X(P.t0),padT);ctx.lineTo(X(P.t0),H-padB);ctx.stroke();ctx.setLineDash([]);}
+  const plot=(arr,color,dash)=>{ctx.strokeStyle=color;ctx.lineWidth=2.4;ctx.setLineDash(dash||[]);ctx.beginPath();
+    for(let i=0;i<arr.length;i++){const x=X(sol.xs[i]),y=Y(arr[i]);i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();ctx.setLineDash([]);};
+  plot(sol.fs,getCss('--father'),[6,4]);
+  plot(sol.ms,getCss('--mother'),[8,5]);
+  plot(sol.bs,getCss('--infant'));
+}
+
+function classify(e){
+  const [F,M,B]=e;
+  if(F>0.02&&M>0.02&&B>0.02) return['content','Family settles CONTENT'];
+  if(F<-0.02&&M<-0.02&&B<-0.02) return['distressed','Family settles DISTRESSED'];
+  return['mixed','Mixed outcome'];
+}
+
+function update(){
+  const sol=integrate();
+  draw(sol);
+  const eq=equilibrium();                 // true steady state, not the end of the plot window
+  oF.textContent=eq[0].toFixed(2); oM.textContent=eq[1].toFixed(2); oB.textContent=eq[2].toFixed(2);
+  const [cls,txt]=classify(eq);
+  const badge=document.getElementById('state');
+  badge.className='badge '+cls; badge.textContent=txt;
+  document.getElementById('note').textContent =
+    P.td ? 'The early boost only reshapes the path; the family still lands at the equilibrium set by the baselines.'
+         : 'This is the autonomous model. The final values are the steady-state equilibrium.';
+}
+
+const bind=(id,key,fmt)=>{const el=document.getElementById(id),lab=document.getElementById('v'+id);
+  const set=()=>{P[key]=parseFloat(el.value);if(lab)lab.textContent=(fmt||(v=>v.toFixed(2)))(P[key]);update();};
+  el.addEventListener('input',set);return set;};
+const setAF=bind('aF','aF'),setAM=bind('aM','aM'),setAB=bind('aB','aB');
+const setRF=bind('rF','rF'),setRM=bind('rM','rM'),setRB=bind('rB','rB');
+bind('c','c'); bind('T','T',v=>v.toFixed(0))();
+document.getElementById('td').addEventListener('change',e=>{P.td=e.target.checked;
+  document.getElementById('c').disabled=!P.td;
+  if(P.td&&P.T>24){document.getElementById('T').value=24;P.T=24;document.getElementById('vT').textContent='24';}
+  update();});
+document.querySelectorAll('input[name=ic]').forEach(r=>r.addEventListener('change',e=>{P.ic=parseFloat(e.target.value);update();}));
+
+const presets={
+  healthy:{aF:0.2394,aM:0.4472,aB:0.2222},
+  mild:{aF:0.2394,aM:-0.10,aB:0.2222},
+  severe:{aF:0.2394,aM:-0.70,aB:0.2222},
+  father:{aF:-0.70,aM:0.4472,aB:0.2222},
+  both:{aF:-0.70,aM:-0.70,aB:0.2222},
+};
+document.getElementById('presets').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return; const v=presets[b.dataset.p]; if(!v)return;
+  document.getElementById('aF').value=v.aF; document.getElementById('aM').value=v.aM; document.getElementById('aB').value=v.aB;
+  P.aF=v.aF;P.aM=v.aM;P.aB=v.aB;
+  vaF.textContent=v.aF.toFixed(2);vaM.textContent=v.aM.toFixed(2);vaB.textContent=v.aB.toFixed(2);
+  update();
+});
+
+document.getElementById('aF').value=P.aF;document.getElementById('aM').value=P.aM;document.getElementById('aB').value=P.aB;
+setAF();setAM();setAB();setRF();setRM();setRB();
+document.getElementById('vc').textContent=P.c.toFixed(2);
+update();
+</script>
+</body>
+</html>
