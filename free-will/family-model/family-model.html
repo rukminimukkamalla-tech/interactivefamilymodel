@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A model of mother, father, and infant relations</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+  .stage{border:1px solid #000;background:#fff;display:block;max-width:100%;height:auto;margin:8px 0}
+  .scenarios{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+  .scenarios button{font-family:inherit;font-size:11pt;padding:6px 12px;border:1px solid #000;background:#fff;cursor:pointer}
+  .scenarios button:hover{background:#f0f0f0}
+  .row{margin:14px 0}
+  .row label{display:flex;justify-content:space-between;font-size:11pt;margin-bottom:4px}
+  .row label .val{font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:#000}
+  .legend{display:flex;gap:18px;font-size:11pt;margin:8px 0}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .sw{width:18px;height:0;border-top-width:2px;border-top-style:solid;display:inline-block}
+  .readout{margin:10px 0}
+  .readout table{border-collapse:collapse}
+  .readout td{padding:2px 18px 2px 0;font-variant-numeric:tabular-nums}
+  .verdict{margin:6px 0;font-weight:bold}
+  .grid{display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start}
+  @media(max-width:720px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+  <nav><a href="../index.html">Questions</a><a href="../about.html">About</a></nav>
+  <h1>A model of mother, father, and infant relations</h1>
+
+  <p>Each family member has a baseline mood and is pulled on by the other two. Set the three baselines, or pick a scenario, and the curves show how each person's emotional state evolves from a distressed start. Wherever the curves settle is where the family settles. The mother's baseline acts as a threshold: lower it far enough and the whole family follows her into distress, even when the father and infant would be fine on their own.</p>
+
+  <div class="grid">
+    <div>
+      <div class="scenarios" id="scenarios">
+        <button data-p="healthy">Both healthy</button>
+        <button data-p="mild">Mild maternal PPD</button>
+        <button data-p="severe">Severe maternal PPD</button>
+        <button data-p="father">Father PPD</button>
+      </div>
+
+      <div class="row">
+        <label>Father baseline <span class="val" id="vaF"></span></label>
+        <input type="range" id="aF" min="-0.9" max="0.7" step="0.01">
+      </div>
+      <div class="row">
+        <label>Mother baseline <span class="val" id="vaM"></span></label>
+        <input type="range" id="aM" min="-0.9" max="0.7" step="0.01">
+      </div>
+      <div class="row">
+        <label>Infant baseline <span class="val" id="vaB"></span></label>
+        <input type="range" id="aB" min="-0.9" max="0.7" step="0.01">
+      </div>
+    </div>
+
+    <div>
+      <div class="legend">
+        <span><i class="sw" style="border-color:#00b4d8"></i>Father</span>
+        <span><i class="sw" style="border-color:#e5177b"></i>Mother</span>
+        <span><i class="sw" style="border-color:#9b5de5"></i>Infant</span>
+      </div>
+      <canvas id="plot" class="stage" width="640" height="380"></canvas>
+      <div class="readout">
+        <table>
+          <tr><td>Father settles at</td><td id="oF">–</td></tr>
+          <tr><td>Mother settles at</td><td id="oM">–</td></tr>
+          <tr><td>Infant settles at</td><td id="oB">–</td></tr>
+        </table>
+      </div>
+      <div class="verdict" id="verdict">–</div>
+    </div>
+  </div>
+</main>
+
+<script>
+// bilinear influence functions: [negative-side slope, positive-side slope]
+const S = {MF:[0.28,0.15], FM:[0.31,0.21], MB:[0.40,0.25], FB:[0.20,0.40], BM:[0.50,0.20], BF:[0.40,0.30]};
+const inf = (k,x)=> (x<0 ? S[k][0] : S[k][1]) * x;
+
+const P = { aF:0.2394, aM:0.4472, aB:0.2222, rF:-0.63, rM:-0.86, rB:-0.74, T:50 };
+
+function deriv(F,M,B){
+  return [ P.aF + P.rF*F + inf('MF',M) + inf('BF',B),
+           P.aM + P.rM*M + inf('FM',F) + inf('BM',B),
+           P.aB + P.rB*B + inf('MB',M) + inf('FB',F) ];
+}
+
+// integrate from a distressed start; return the trajectory and its settled endpoint
+function integrate(T){
+  const dt=0.02, n=Math.round(T/dt);
+  let F=-1,M=-1,B=-1;
+  const xs=[0],fs=[F],ms=[M],bs=[B];
+  for(let k=0;k<n;k++){
+    const k1=deriv(F,M,B);
+    const k2=deriv(F+0.5*dt*k1[0],M+0.5*dt*k1[1],B+0.5*dt*k1[2]);
+    const k3=deriv(F+0.5*dt*k2[0],M+0.5*dt*k2[1],B+0.5*dt*k2[2]);
+    const k4=deriv(F+dt*k3[0],M+dt*k3[1],B+dt*k3[2]);
+    F+=dt/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]);
+    M+=dt/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]);
+    B+=dt/6*(k1[2]+2*k2[2]+2*k3[2]+k4[2]);
+    xs.push((k+1)*dt); fs.push(F); ms.push(M); bs.push(B);
+  }
+  return {xs,fs,ms,bs,end:[F,M,B]};
+}
+
+const cv=document.getElementById('plot'), ctx=cv.getContext('2d');
+function draw(sol){
+  const W=cv.width,H=cv.height,padL=40,padR=16,padT=16,padB=30;
+  ctx.clearRect(0,0,W,H);
+  let lo=-1.4, hi=1.6;
+  for(let i=0;i<sol.ms.length;i+=10){lo=Math.min(lo,sol.fs[i],sol.ms[i],sol.bs[i]);hi=Math.max(hi,sol.fs[i],sol.ms[i],sol.bs[i]);}
+  lo=Math.floor(lo*2)/2-0.2; hi=Math.ceil(hi*2)/2+0.2;
+  const X=t=>padL+(t/P.T)*(W-padL-padR);
+  const Y=v=>padT+(1-(v-lo)/(hi-lo))*(H-padT-padB);
+  // gridlines at integers
+  ctx.strokeStyle='#eee';ctx.fillStyle='#666';ctx.font='11px Arial';ctx.lineWidth=1;
+  for(let v=Math.ceil(lo);v<=Math.floor(hi);v++){
+    ctx.beginPath();ctx.moveTo(padL,Y(v));ctx.lineTo(W-padR,Y(v));ctx.stroke();
+    ctx.fillText(v.toFixed(0),8,Y(v)+4);
+  }
+  // zero line darker
+  ctx.strokeStyle='#000';ctx.beginPath();ctx.moveTo(padL,Y(0));ctx.lineTo(W-padR,Y(0));ctx.stroke();
+  for(let t=0;t<=P.T;t+=10){ctx.fillText(t.toFixed(0),X(t)-5,H-10);}
+  ctx.fillText('time (illustrative units)',W/2-56,H-1);
+  const plot=(arr,color,dash)=>{ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash(dash||[]);
+    ctx.beginPath();for(let i=0;i<arr.length;i++){const x=X(sol.xs[i]),y=Y(arr[i]);i?ctx.lineTo(x,y):ctx.moveTo(x,y);}
+    ctx.stroke();ctx.setLineDash([]);};
+  plot(sol.fs,'#00b4d8');
+  plot(sol.ms,'#e5177b');
+  plot(sol.bs,'#9b5de5');
+}
+
+function update(){
+  const sol=integrate(P.T);
+  draw(sol);
+  const [F,M,B]=sol.end;
+  oF.textContent=F.toFixed(2); oM.textContent=M.toFixed(2); oB.textContent=B.toFixed(2);
+  const v=document.getElementById('verdict');
+  if(F>0.02&&M>0.02&&B>0.02) v.textContent='The family settles content.';
+  else if(F<-0.02&&M<-0.02&&B<-0.02) v.textContent='The whole family settles into distress.';
+  else v.textContent='A mixed outcome: some settle content, some distressed.';
+}
+
+function bind(id,key){const el=document.getElementById(id),lab=document.getElementById('v'+id);
+  const set=()=>{P[key]=parseFloat(el.value);lab.textContent=P[key].toFixed(2);update();};
+  el.addEventListener('input',set);return set;}
+const setAF=bind('aF','aF'),setAM=bind('aM','aM'),setAB=bind('aB','aB');
+
+const presets={
+  healthy:{aF:0.2394,aM:0.4472,aB:0.2222},
+  mild:{aF:0.2394,aM:-0.10,aB:0.2222},
+  severe:{aF:0.2394,aM:-0.70,aB:0.2222},
+  father:{aF:-0.70,aM:0.4472,aB:0.2222},
+};
+document.getElementById('scenarios').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return; const v=presets[b.dataset.p]; if(!v)return;
+  aF.value=v.aF; aM.value=v.aM; aB.value=v.aB;
+  P.aF=v.aF; P.aM=v.aM; P.aB=v.aB;
+  vaF.textContent=v.aF.toFixed(2); vaM.textContent=v.aM.toFixed(2); vaB.textContent=v.aB.toFixed(2);
+  update();
+});
+
+aF.value=P.aF; aM.value=P.aM; aB.value=P.aB;
+setAF(); setAM(); setAB();
+</script>
+</main>
+</body>
+</html>
